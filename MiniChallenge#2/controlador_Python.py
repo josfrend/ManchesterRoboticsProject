@@ -41,19 +41,22 @@ e = 0.0
 e_1 = 0.0
 u = 0.0
 u_1 = 0.0
-kp = 0.0
-ti = 0.0
+
+kp = 0.011509                           #Kp parameter
+ti = 0.015025                           #Ti parameter
 q0 = 0.0
 q1 = 0.0
 
-def PID_Initialize(T, k, tao, theta):
+def PID_Initialize():
     global kp, ti, q0, q1
     
+    t = 0.01    #sample rate
+    
     # Calculate the coefficients for the discrete PID controller
-    kp = (0.9 * tao) / (k * theta)
-    ti = 3.33 * theta
-    q0 = kp + ((kp * T)/(2.0 * ti))
-    q1 = ((kp * T)/(2.0 * ti)) - kp
+    #kp = (0.9 * tao) / (k * theta)
+    #ti = 3.33 * theta
+    q0 = kp + ((kp * t)/(2.0 * ti))
+    q1 = ((kp * t)/(2.0 * ti)) - kp
 
 def PID_Discrete(yM, max_val, min_val, set_point):
     global e, e_1, u, u_1
