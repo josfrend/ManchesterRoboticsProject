@@ -10,6 +10,7 @@ set_up_delay = 0
 start_time = 0.0
 
 now = datetime.now()
+set_point_value = rospy.get_param("/system_param_set_point")
 
 #Stop Condition
 def stop():
@@ -34,7 +35,7 @@ if __name__=='__main__':
     while not rospy.is_shutdown():
       
       mySetpoint.time = rospy.get_time() - start_time
-      mySetpoint.reference = 3.0
+      mySetpoint.reference = set_point_value
       #Write your code here
       pub.publish(mySetpoint)
 
