@@ -4,11 +4,13 @@
 #define pwm_pin 2
 
 ros::NodeHandle  nh;
+#pwm_value initialization
 int pwm_value = 100;
 
 std_msgs::Int16 str_msg;
 ros::Publisher chatter("chatter", &str_msg);
 
+#Funcion de callback
 void messageCB(const std_msgs::Int16& toogle_msg){
   pwm_value = toogle_msg.data;
 }
@@ -19,9 +21,12 @@ char hello[13] = "hello world!";
 
 void setup()
 {
+  #Pins setup
   pinMode(pwm_pin, OUTPUT);
   pinMode(3, OUTPUT);
   pinMode(4, OUTPUT);
+  
+  #Handler setup
   nh.initNode();
   nh.advertise(chatter);
   nh.subscribe(sub);
@@ -31,10 +36,12 @@ void loop()
 {
   str_msg.data = pwm_value;
   chatter.publish( &str_msg);
+  
   if(pwm_value > 255 ){
     analogWrite(3,255);
     analogWrite(4,0);
     pwm_value = pwm_value - 255;
+    
   }else if(pwm_value <= 255){
     analogWrite(4,255);
     analogWrite(3,0);
