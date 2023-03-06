@@ -26,7 +26,10 @@ if __name__=='__main__':
 
     #Setup Publishers and subscribers here
     pub = rospy.Publisher("cmd_pwm", Int16, queue_size = 10)
+    pub2 = rospy.Publisher("setpoint", Int16, queue_size = 10)
     mySetpoint = Int16()
+    mySetpoint2 = Int16()
+    mySetpoint2.data = 255
 
     print("Input Signal Generator is Running")
 
@@ -36,12 +39,13 @@ if __name__=='__main__':
       
       time = rospy.get_time() - start_time
       if(typeSignal == 1):
-        mySetpoint.data = 125 * np.sin(time/10) + 125                 
+        mySetpoint.data = 250 * np.sin(time/5) + 250                 
       elif(typeSignal == 2):
-        mySetpoint.data = 70 * np.sign(np.sin( np.pi * 1 * time / 10)) + 70
+        mySetpoint.data = 140 * np.sign(np.sin( np.pi * 1 * time / 5)) + 140
       else:                                                                                                   
-        mySetpoint.data = 150
+        mySetpoint.data = 390
       #Write your code here 
       pub.publish(mySetpoint)
+      pub2.publish(mySetpoint2)
 
       rate.sleep()
