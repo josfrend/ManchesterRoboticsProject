@@ -53,7 +53,7 @@ if __name__=='__main__':
         # Generate the setpoint value based on the "typeSignal" parameter
         if typeSignal == 1:
             # Sine wave with a frequency of 0.2 Hz and an amplitude of 250
-            mySetpoint.data = 250 * np.sin(time / 5) + 250
+            mySetpoint.data = 250 * np.sin(time / 5) + 255
         elif typeSignal == 2:
             # Square wave with a frequency of 0.2 Hz and an amplitude of 140
             mySetpoint.data = 140 * np.sign(np.sin(np.pi * 1 * time / 5)) + 140
