@@ -5,7 +5,7 @@
 
 ros::NodeHandle  nh;
 #pwm_value initialization
-int pwm_value = 100;
+int pwm_value = 255;
 
 std_msgs::Int16 str_msg;
 ros::Publisher chatter("chatter", &str_msg);
@@ -17,7 +17,6 @@ void messageCB(const std_msgs::Int16& toogle_msg){
 
 ros::Subscriber <std_msgs::Int16> sub("cmd_pwm", &messageCB);
 
-char hello[13] = "hello world!";
 
 void setup()
 {
@@ -34,18 +33,22 @@ void setup()
 
 void loop()
 {
+  #Publish received value to check behaviour
   str_msg.data = pwm_value;
   chatter.publish( &str_msg);
   
+  #Output of pwm value in clockwise direction 
   if(pwm_value > 255 ){
     analogWrite(3,255);
     analogWrite(4,0);
-    pwm_value = pwm_value - 255;
+    pwm_value = pwm_value - 255; #Received value minus offset
     
-  }else if(pwm_value <= 255){
+  }
+  #Output of pwm value in counter clockwise direction
+  else if(pwm_value <= 255){
     analogWrite(4,255);
     analogWrite(3,0);
-    pwm_value = -1 *(pwm_value - 510);
+    pwm_value = -1 *(pwm_value - 510); #Received value minus entire resolution to get the actual magnitude
   }
   analogWrite(pwm_pin, pwm_value);
   nh.spinOnce();
