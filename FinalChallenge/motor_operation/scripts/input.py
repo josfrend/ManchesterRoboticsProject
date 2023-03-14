@@ -7,7 +7,6 @@ from std_msgs.msg import Float32
 # Setup Variables, parameters and messages to be used (if required)
 
 start_time = 0.0
-maximumOmega = 19.2
 last_typeSignal = ""
 last_step = 0.0
 last_sinAmp = 0.0
@@ -35,6 +34,9 @@ def checkingConditions():
     squareAmp = last_squareAmp
   else:
     last_squareAmp = squareAmp
+  if(squareAmp + squareOffset > maximumOmega or squareAmp + squareOffset < -maximumOmega):
+    squareAmp = squareAmp - (squareAmp + squareOffset - maximumOmega)
+
 
 
 if __name__=='__main__':
@@ -59,6 +61,8 @@ if __name__=='__main__':
       squarePeriod = rospy.get_param("/squarePeriod")
       squareAmp = rospy.get_param("/squareAmp")
       squareOffset = rospy.get_param("/squareOffset")
+      maximumOmega = rospy.get_param("/maximumOmega")
+      
       
       checkingConditions()
       
@@ -67,7 +71,7 @@ if __name__=='__main__':
         mySetpoint.data = sinAmp * np.sin(time/sinPeriod) 
         last_typeSignal = "sin"                
       elif(typeSignal == "square"):
-        mySetpoint.data = squareAmp*np.sign(np.sin( np.pi * 1 * time / squarePeriod)) + 10
+        mySetpoint.data = squareAmp*np.sign(np.sin( np.pi * 1 * time / squarePeriod)) + squareOffset
         last_typeSignal = "square"
       elif(typeSignal == "step"):                                                                                                   
         mySetpoint.data = stepSignal
