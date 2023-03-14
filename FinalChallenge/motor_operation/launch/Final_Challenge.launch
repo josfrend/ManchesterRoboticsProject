@@ -1,0 +1,11 @@
+<?xml version="1.0" ?>
+<launch>
+
+    <rosparam file="$(find motor_operation)/config/control_params.yaml" command="load"/>
+    <node name="controller" pkg="motor_operation" type="controller.py" output="screen"/>
+    <rosparam file="$(find motor_operation)/config/input_params.yaml" command="load"/>
+    <node name="input" pkg="motor_operation" type="input.py" output="screen"/>
+    <node name="serial_node" pkg="rosserial_python" type="serial_node.py">
+    <param name="port" type="string" value="/dev/ttyUSB0"/></node>
+    <node name="rqt_plot" pkg="rqt_plot" type="rqt_plot" output="screen" args="/motor_output/data /motor_input/data /set_point/data /error/data /errorKp/data /errorKi/data /errorKd/data"/>
+</launch>
