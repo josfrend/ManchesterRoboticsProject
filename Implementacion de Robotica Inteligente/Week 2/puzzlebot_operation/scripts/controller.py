@@ -16,7 +16,7 @@ distance = 0
 angle = 0
 total_distance = 0.0
 total_angle = 0.0
-pause = 0
+pause = [0,0]
 movement = [0,0]
 mySetpoint = Twist()
 mySetpoint.linear.x = 0.
@@ -93,11 +93,11 @@ if __name__=='__main__':
 
 
       movement = coordinates(input_coordinates[step])
-      if(pointSelf == input_coordinates[step]):
+      if(pointSelf == input_coordinates[step] and len(input_coordinates)-1>step):
         step += 1
       
 
-      if(movement[1]-total_angle > 0.):
+      if(movement[1]-total_angle > 0.001):
         mySetpoint.linear.x = 0.
         mySetpoint.angular.z = 0.5
         total_angle = total_angle + angle
@@ -106,13 +106,12 @@ if __name__=='__main__':
         mySetpoint.angular.z = 0.25
         total_angle = total_angle + angle"""
 
-      elif(pause < 50 and total_distance == 0):
-        pause += 1
+      elif(pause[0] < 50 and total_distance == 0):
+        pause[0] += 1
         mySetpoint.linear.x = 0.
         mySetpoint.angular.z = 0.
 
-      elif(movement[0]-total_distance > 0.0 and mySetpoint.angular.z == 0.):
-        #pause = 0
+      elif(movement[0]-total_distance > 0.05 and mySetpoint.angular.z == 0.):
         mySetpoint.linear.x = 0.5
         mySetpoint.angular.z = 0.
         """if(movement[0] - total_distance > 0.1):
@@ -121,13 +120,13 @@ if __name__=='__main__':
           mySetpoint.angular.z = 0."""
         total_distance = total_distance + distance
       
-      elif(pause < 50):
-        pause += 1
+      elif(pause[1] < 50):
+        pause[1] += 1
         mySetpoint.linear.x = 0.
         mySetpoint.angular.z = 0.
 
       else:
-        pause = 0
+        pause = [0,0]
         if(angle > math.pi):
           angle = angle%math.pi
         mySetpoint.linear.x = 0.
@@ -135,7 +134,7 @@ if __name__=='__main__':
         total_distance = 0
         pointSelf = input_coordinates[step]
 
-      debug.x = movement[1]
+      debug.x = np.rad2deg(movement[1])
       debug.y = np.rad2deg(total_angle)
       debug.z = total_distance
       #Write your code here
