@@ -97,7 +97,7 @@ if __name__=='__main__':
         step += 1
       
 
-      if(movement[1]-total_angle > 0.1):
+      if(movement[1]-total_angle > 0.):
         mySetpoint.linear.x = 0.
         mySetpoint.angular.z = 0.5
         total_angle = total_angle + angle
@@ -106,13 +106,13 @@ if __name__=='__main__':
         mySetpoint.angular.z = 0.25
         total_angle = total_angle + angle"""
 
-      elif(movement[1]-total_angle <= 0.1 and pause < 50):
+      elif(pause < 50 and total_distance == 0):
         pause += 1
         mySetpoint.linear.x = 0.
         mySetpoint.angular.z = 0.
 
       elif(movement[0]-total_distance > 0.0 and mySetpoint.angular.z == 0.):
-        pause = 0
+        #pause = 0
         mySetpoint.linear.x = 0.5
         mySetpoint.angular.z = 0.
         """if(movement[0] - total_distance > 0.1):
@@ -121,7 +121,7 @@ if __name__=='__main__':
           mySetpoint.angular.z = 0."""
         total_distance = total_distance + distance
       
-      elif(movement[1]-total_angle <= 0.1 and pause < 50 and movement[0]-total_distance <= 0):
+      elif(pause < 50):
         pause += 1
         mySetpoint.linear.x = 0.
         mySetpoint.angular.z = 0.
