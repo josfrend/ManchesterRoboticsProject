@@ -18,13 +18,13 @@ total_distance = 0.0
 total_angle = 0.0
 pause = [0,0]
 movement = [0,0]
-mySetpoint = Twist()
-mySetpoint.linear.x = 0.
-mySetpoint.linear.y = 0.
-mySetpoint.linear.z = 0.
-mySetpoint.angular.x = 0.
-mySetpoint.angular.y = 0.
-mySetpoint.angular.z = 0.
+speed = Twist()
+speed.linear.x = 0.
+speed.linear.y = 0.
+speed.linear.z = 0.
+speed.angular.x = 0.
+speed.angular.y = 0.
+speed.angular.z = 0.
 
 
 def coordinates(coordinate):
@@ -86,8 +86,8 @@ if __name__=='__main__':
       dt = rospy.get_time() - start_time
       if(check < 10):
         dt = 0.0
-      distance = mySetpoint.linear.x * dt 
-      angle = (mySetpoint.angular.z * dt)
+      distance = speed.linear.x * dt 
+      angle = (speed.angular.z * dt)
       input_coordinates = [[2,0], [2,2], [0,2], [0,0]]
       
 
@@ -98,39 +98,39 @@ if __name__=='__main__':
       
 
       if(movement[1]-total_angle > 0.0):
-        mySetpoint.linear.x = 0.
-        mySetpoint.angular.z = 0.5
+        speed.linear.x = 0.
+        speed.angular.z = 0.5
         total_angle = total_angle + angle
         """elif(movement[1]-total_angle > 0.0 and movement[1]-total_angle <= 5):
-        mySetpoint.linear.x = 0.
-        mySetpoint.angular.z = 0.25
+        speed.linear.x = 0.
+        speed.angular.z = 0.25
         total_angle = total_angle + angle"""
 
       elif(pause[0] < 50 and total_distance == 0):
         pause[0] += 1
-        mySetpoint.linear.x = 0.
-        mySetpoint.angular.z = 0.
+        speed.linear.x = 0.
+        speed.angular.z = 0.
 
-      elif(movement[0]-total_distance > 0.0005 and mySetpoint.angular.z == 0.):
-        mySetpoint.linear.x = 0.5
-        mySetpoint.angular.z = 0.
+      elif(movement[0]-total_distance > 0.0005 and speed.angular.z == 0.):
+        speed.linear.x = 0.5
+        speed.angular.z = 0.
         """if(movement[0] - total_distance > 0.1):
         elif(movement[0] - total_distance <= 0.1 and total_distance >= movement[0]):
-          mySetpoint.linear.x = 0.25
-          mySetpoint.angular.z = 0."""
+          speed.linear.x = 0.25
+          speed.angular.z = 0."""
         total_distance = total_distance + distance
       
       elif(pause[1] < 50):
         pause[1] += 1
-        mySetpoint.linear.x = 0.
-        mySetpoint.angular.z = 0.
+        speed.linear.x = 0.
+        speed.angular.z = 0.
 
       else:
         pause = [0,0]
         if(angle > math.pi):
           angle = angle%math.pi
-        mySetpoint.linear.x = 0.
-        mySetpoint.angular.z = 0.
+        speed.linear.x = 0.
+        speed.angular.z = 0.
         total_angle = movement[1]
         total_distance = 0
         pointSelf = input_coordinates[step]
@@ -139,7 +139,7 @@ if __name__=='__main__':
       debug.y = np.rad2deg(total_angle)
       debug.z = total_distance
       #Write your code here
-      pub.publish(mySetpoint)
+      pub.publish(speed)
       pub2.publish(debug)
       start_time = rospy.get_time()
       check+=1
