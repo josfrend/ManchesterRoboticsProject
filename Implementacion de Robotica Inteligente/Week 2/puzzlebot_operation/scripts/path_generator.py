@@ -25,21 +25,23 @@ if __name__=='__main__':
 
     #Setup Publishers and subscribers here
     pub = rospy.Publisher("pose", pose, queue_size = 10)
-    punto = pose()
+    puntos = pose()
+    path = rospy.get_param("/path")
+    camino = []
+
+    for i in range(0,len(path)):
+      camino.append(path[i][0])
+      camino.append(path[i][1])
+    puntos = camino
 
     print("Path Generator is Running")
 
     #Run the node
     while not rospy.is_shutdown():
-      path = rospy.get_param("/path")
-
-      for i in path:
-        
 
       time = rospy.get_time() - start_time
       
-      mySetpoint.time = rospy.get_time() - start_time
       #Write your code here 
-      pub.publish(mySetpoint)
+      pub.publish(puntos)
 
       rate.sleep()
