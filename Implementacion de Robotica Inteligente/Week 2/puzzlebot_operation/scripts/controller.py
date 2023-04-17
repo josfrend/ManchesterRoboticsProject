@@ -27,9 +27,9 @@ speed.angular.y = 0.
 speed.angular.z = 0.
 
 
-def coordinates(coordinate):
-  xdf = coordinate[0] - pointSelf[0]  
-  ydf = coordinate[1] - pointSelf[1]
+def coordinates(origin, coordinate):
+  xdf = coordinate[0] - origin[0]  
+  ydf = coordinate[1] - origin[1]
   magnitude = np.sqrt(xdf ** 2 + ydf ** 2)
   #v1_theta = math.atan2(ydf, xdf)
   #v2_theta = math.atan2(coordinate[1], coordinate[0])
@@ -39,6 +39,18 @@ def coordinates(coordinate):
     angle = math.pi - angle
   movement = [magnitude, angle]
   return movement
+
+def calculate_speeds(desired_time, path):
+  total_magnitude = 0
+  total_angle = 0
+  entire_path = [pointSelf] + path
+  for i in range(0,len(entire_path)-1):
+    step_speeds = coordinates(entire_path[i], entire_path[i+1])
+    total_magnitude += step_speeds[0]
+    total_angle += step_speeds[1]
+  angular_speed = total_angle/(desired_time/2)
+  linear_speed = total_magnitude/(desired_time/2)
+  return [linear_speed,angular_speed]
 
 
   
@@ -71,35 +83,51 @@ if __name__=='__main__':
     debug = Vector3()
     pointSelf = [0,0]
     
-    movement = [0,0]#rospy.get_param("/distance")
+    movement = [0,0]
 
     print("Controller Node is Running")
     start_time = rospy.get_time()
     step = 0
-    i = 0
     check = 0
+    path = []
+
     
     #Run the node
     while not rospy.is_shutdown():
 
+      input_path = rospy.get_param("/path")
+
       #next_point = rospy.get_param("/point")
+      desired_time = rospy.get_param("/time")
+        
       dt = rospy.get_time() - start_time
-      if(check < 10):
+      if(check < 5 or previous_path != path):
         dt = 0.0
+        path = []
+        for i in range(0,len(input_path)/2):
+          path.append([input_path[i*2],input_path[i*2+1]])
+        velocities = calculate_speeds(desired_time, path)
+        if(velocities[0]>1.0 or velocities[1]>2.0):
+          path = []
+        step = 0
+
+     
+ 
+      previous_path = path
       distance = speed.linear.x * dt 
       angle = (speed.angular.z * dt)
-      input_coordinates = [[2,0], [2,2], [0,2], [0,0]]
+      #path = [[2,0], [2,2], [0,2], [0,0]]
       
 
-
-      movement = coordinates(input_coordinates[step])
-      if(pointSelf == input_coordinates[step] and len(input_coordinates)-1>step):
-        step += 1
+      if(path != []):
+        movement = coordinates(pointSelf,path[step])
+        if(pointSelf == path[step] and len(path)-1>step):
+          step += 1
       
 
-      if(movement[1]-total_angle > 0.0):
+      if(movement[1]-total_angle > 0.):
         speed.linear.x = 0.
-        speed.angular.z = 0.5
+        speed.angular.z = velocities[1]
         total_angle = total_angle + angle
         """elif(movement[1]-total_angle > 0.0 and movement[1]-total_angle <= 5):
         speed.linear.x = 0.
@@ -112,7 +140,7 @@ if __name__=='__main__':
         speed.angular.z = 0.
 
       elif(movement[0]-total_distance > 0.0005 and speed.angular.z == 0.):
-        speed.linear.x = 0.5
+        speed.linear.x = velocities[0]
         speed.angular.z = 0.
         """if(movement[0] - total_distance > 0.1):
         elif(movement[0] - total_distance <= 0.1 and total_distance >= movement[0]):
@@ -133,11 +161,12 @@ if __name__=='__main__':
         speed.angular.z = 0.
         total_angle = movement[1]
         total_distance = 0
-        pointSelf = input_coordinates[step]
+        if(path != []):
+          pointSelf = path[step]
 
-      debug.x = np.rad2deg(movement[1])
-      debug.y = np.rad2deg(total_angle)
-      debug.z = total_distance
+      debug.x = velocities[0]
+      debug.y = velocities[1]
+      debug.z = total_angle
       #Write your code here
       pub.publish(speed)
       pub2.publish(debug)
