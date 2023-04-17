@@ -5,6 +5,7 @@ import math
 from geometry_msgs.msg import Twist
 from geometry_msgs.msg import Vector3
 from std_msgs.msg import Float32
+from puzzlebot_operation.msg import pose
 
 wr = 0.
 wl = 0.
@@ -25,6 +26,9 @@ speed.linear.z = 0.
 speed.angular.x = 0.
 speed.angular.y = 0.
 speed.angular.z = 0.
+input_path = []
+previous_path = []
+path = []
 
 
 def coordinates(origin, coordinate):
@@ -53,6 +57,9 @@ def calculate_speeds(desired_time, path):
   return [linear_speed,angular_speed]
 
 
+def callbackpath(msg):
+  global input_path
+  input_path = msg.pose
   
   
 
@@ -89,31 +96,35 @@ if __name__=='__main__':
     start_time = rospy.get_time()
     step = 0
     check = 0
-    path = []
+    
 
     
     #Run the node
     while not rospy.is_shutdown():
 
-      input_path = rospy.get_param("/path")
+      #input_path = rospy.get_param("/path")
+      rospy.Subscriber("/pose", pose, callbackpath)
 
-      #next_point = rospy.get_param("/point")
+      
       desired_time = rospy.get_param("/time")
-        
+
+      
       dt = rospy.get_time() - start_time
-      if(check < 5 or previous_path != path):
+
+      if(check < 5 or path != previous_path):
         dt = 0.0
         path = []
         for i in range(0,len(input_path)/2):
           path.append([input_path[i*2],input_path[i*2+1]])
         velocities = calculate_speeds(desired_time, path)
-        if(velocities[0]>1.0 or velocities[1]>2.0):
-          path = []
+        #if(velocities[0]>1.0 or velocities[1]>2.0):
+         # path = []
         step = 0
-
+      
+      previous_path = path
      
  
-      previous_path = path
+      
       distance = speed.linear.x * dt 
       angle = (speed.angular.z * dt)
       #path = [[2,0], [2,2], [0,2], [0,0]]

@@ -74,7 +74,7 @@ if __name__=='__main__':
       if(velocities[0]>1.0 or velocities[1]>2.0):
         print("It is not possible to complete the path in the desired time frame due to dynamic limitations")
       else:
-        puntos = path
+        puntos.pose = np.array(path).flatten().tolist()
         pub.publish(puntos)
       
       #Write your code here 

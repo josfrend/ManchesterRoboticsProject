@@ -1,1 +1,1 @@
-float32[] pose
+int32[] pose
