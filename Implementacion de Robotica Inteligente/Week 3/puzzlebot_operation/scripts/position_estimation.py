@@ -28,11 +28,12 @@ class puzzlebot:
         self.speed.angular.x = 0.0
         self.speed.angular.y = 0.0
         self.speed.angular.z = 0.0
-        self.firstIteration = False
+        self.beginning = False
+        self.check = 0
         self.angular_threshold_reached = False
         self.linear_threshold_reached = False
 
-        self.kp_angular = 0.5
+        self.kp_angular = 0.49
         self.kp_linear = 0.4
 
         self.main_pub = rospy.Publisher("/cmd_vel", Twist, queue_size= 10)
@@ -56,6 +57,11 @@ class puzzlebot:
         output = self.kp_angular * self.error_theta
         self.last_error_theta = self.error_theta
         return output
+    
+    def PID_Linear(self):
+        output = self.kp_linear * self.error_d
+        self.last_error_d = self.error_d
+        return output
 
     def callbackWr(self, msg):
         self.wr = msg.data
@@ -67,11 +73,11 @@ class puzzlebot:
         print("Stopping")
 
     def run(self):
-        target_position = [2,2]
+        target_position = [1,1]
 
         self.dt = rospy.get_time() - self.start_time
 
-        if(self.firstIteration == False):
+        if(self.beginning == False):
             self.dt = 0.0
     
         self.theta_k = self.theta_k + (self.r*((self.wr - self.wl) /self.l)) * self.dt
@@ -79,7 +85,7 @@ class puzzlebot:
         self.x_k = self.x_k + (self.r*(self.wr + self.wl) /2) * self.dt * np.cos(self.theta_k)
         self.y_k = self.y_k + (self.r*(self.wr + self.wl) /2) * self.dt * np.sin(self.theta_k)
 
-        self.error_theta = (np.arctan2(target_position[1]-self.y_k ,target_position[0]-self.x_k)) - self.theta_k
+        self.error_theta = (np.arctan2(target_position[1]-self.y_k, target_position[0]-self.x_k)) - self.theta_k
         self.error_d = np.sqrt((target_position[0]-self.x_k)**2 + (target_position[1]-self.y_k)**2)
 
         self.data_out.x = self.x_k
@@ -88,24 +94,34 @@ class puzzlebot:
 
 
 
-        if(abs(self.error_theta) > 0.1 and self.angular_threshold_reached == False):
+        if(np.rad2deg(abs(self.error_theta)) > 0.1 and self.angular_threshold_reached == False):
             self.speed.linear.x = 0.0
             self.speed.angular.z = self.PID_Angular()
-        elif(abs(self.error_d) > 0.1 and self.linear_threshold_reached == False):
-            self.speed.linear.x = 0.3
-            self.speed.angular.z = 0.0
+
+        elif(self.error_d > 0.05 and self.linear_threshold_reached == False):
+            self.speed.linear.x = self.PID_Linear()
+            self.speed.angular.z = 0.
             self.angular_threshold_reached = True
+            #self.error_theta = 0.0
+            if(self.error_d > 4):
+                self.linear_threshold_reached = True
+                
         else:
             self.linear_threshold_reached = True
-            self.speed.linear.x = 0.0
-            self.speed.angular.z = 0.0
+            self.angular_threshold_reached = True
+            self.speed.linear.x = 0.
+            self.speed.angular.z = 0.
+            #print("im here")
 
+        #print(self.angular_threshold_reached)
         self.main_pub.publish(self.speed)
         self.pub.publish(self.data_out)
-        self.pub2.publish(self.error_theta)
+        self.pub2.publish(np.rad2deg(self.error_theta))
         self.pub3.publish(self.error_d)
         self.start_time = rospy.get_time()
-        self.firstIteration = True
+        if(self.check > 20):
+            self.beginning = True
+        self.check += 1
 
 
 if __name__ == '__main__':
