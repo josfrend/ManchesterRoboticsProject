@@ -29,6 +29,7 @@ class puzzlebot:
         self.speed.angular.y = 0.0
         self.speed.angular.z = 0.0
         self.beginning = False
+        self.current_step = 0 
         self.check = 0
         self.angular_threshold_reached = False
         self.linear_threshold_reached = False
@@ -73,20 +74,21 @@ class puzzlebot:
         print("Stopping")
 
     def run(self):
-        target_position = [1,1]
+        target_position = [[1,0], [1,1],[0,1],[0,0]]
 
         self.dt = rospy.get_time() - self.start_time
 
         if(self.beginning == False):
             self.dt = 0.0
-    
-        self.theta_k = self.theta_k + (self.r*((self.wr - self.wl) /self.l)) * self.dt
+
+        if(self.angular_threshold_reached == False):
+            self.theta_k = self.theta_k + (self.r*((self.wr - self.wl) /self.l)) * self.dt
         self.wrapTheta()
         self.x_k = self.x_k + (self.r*(self.wr + self.wl) /2) * self.dt * np.cos(self.theta_k)
         self.y_k = self.y_k + (self.r*(self.wr + self.wl) /2) * self.dt * np.sin(self.theta_k)
 
-        self.error_theta = (np.arctan2(target_position[1]-self.y_k, target_position[0]-self.x_k)) - self.theta_k
-        self.error_d = np.sqrt((target_position[0]-self.x_k)**2 + (target_position[1]-self.y_k)**2)
+        self.error_theta = (np.arctan2(target_position[self.current_step][1]-self.y_k, target_position[self.current_step][0]-self.x_k)) - self.theta_k
+        self.error_d = np.sqrt((target_position[self.current_step][0]-self.x_k)**2 + (target_position[self.current_step][1]-self.y_k)**2)
 
         self.data_out.x = self.x_k
         self.data_out.y = self.y_k
@@ -107,10 +109,13 @@ class puzzlebot:
                 self.linear_threshold_reached = True
                 
         else:
-            self.linear_threshold_reached = True
-            self.angular_threshold_reached = True
+            self.linear_threshold_reached = False
+            self.angular_threshold_reached = False
             self.speed.linear.x = 0.
             self.speed.angular.z = 0.
+            self.error_theta = 0.
+            if(self.current_step < len(target_position)-1):
+                self.current_step += 1
             #print("im here")
 
         #print(self.angular_threshold_reached)
