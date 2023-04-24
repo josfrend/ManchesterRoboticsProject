@@ -51,11 +51,12 @@ find_package(catkin REQUIRED COMPONENTS
 add_message_files(
    FILES
    pose.msg
+   goal.msg
  )
 
 ## Generate services in the 'srv' folder
 # add_service_files(
-#   FILES
+#   FILE
 #   Service1.srv
 #   Service2.srv
 # )
@@ -162,7 +163,7 @@ include_directories(
 ## Mark executable scripts (Python etc.) for installation
 ## in contrast to setup.py, you can choose the destination
  catkin_install_python(PROGRAMS
-   scripts/controller.py scripts/path_generator.py scripts/position_estimation.py
+   scripts/controller.py scripts/path_generator.py scripts/position_estimation.py scripts/path_gen_cl.py
    DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
  )
 

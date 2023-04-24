@@ -10,7 +10,7 @@ from puzzlebot_operation.msg import pose
 wr = 0.
 wl = 0.
 r = 0.05
-l = 0.19
+l = 0.18
 pointSelf = [0,0]
 direction = 0
 distance = 0
@@ -29,47 +29,7 @@ speed.angular.z = 0.
 input_path = []
 previous_path = []
 path = []
-theta_k = 0
-x_k = 0
-y_k = 0
-dt = 0
-kp_angular = 0.5
-ki_angular = 0.4
-kd_angular = 0
 
-kp_linear = 0.5
-ki_linear = 0.4
-kd_linear = 0
-
-integral_angular = 0.0
-last_error_angular = 0.0
-integral_linear = 0.0
-last_error_linear = 0.0
-
-
-def PID_Angular(feedback, setpoint):
-  global dt, integral_angular, last_error_angular
-
-  error = setpoint - feedback
-  derivative = (error - last_error_angular)
-  integral_angular += error * dt
-
-  output = kp_angular * error + ki_angular * integral_angular + kd_angular * derivative
-  last_error_angular = error
-
-  return output
-
-def PID_Linear(feedback, setpoint):
-  global dt, integral_linear, last_error_linear
-
-  error = setpoint - feedback
-  derivative = (error - last_error_linear)
-  integral_linear += error * dt
-
-  output = kp_linear * error + ki_linear * integral_linear + kd_linear * derivative
-  last_error_linear = error
-
-  return output
 
 def coordinates(origin, coordinate):
   xdf = coordinate[0] - origin[0]  
@@ -136,16 +96,17 @@ if __name__=='__main__':
     start_time = rospy.get_time()
     step = 0
     check = 0
+    
 
     
     #Run the node
     while not rospy.is_shutdown():
 
       #input_path = rospy.get_param("/path")
-      #rospy.Subscriber("/pose", pose, callbackpath)
-      input_path = [2,0, 2,2, 0,2, 0,0]
+      rospy.Subscriber("/pose", pose, callbackpath)
 
       
+      desired_time = rospy.get_param("/time")
 
       
       dt = rospy.get_time() - start_time
@@ -155,53 +116,68 @@ if __name__=='__main__':
         path = []
         for i in range(0,len(input_path)/2):
           path.append([input_path[i*2],input_path[i*2+1]])
-
+        velocities = calculate_speeds(desired_time, path)
+        #if(velocities[0]>1.0 or velocities[1]>2.0):
+         # path = []
         step = 0
       
       previous_path = path
      
  
       
-      distance = (r*(wr + wl) /2) * dt 
-      angle = (r*((wr - wl) /l)) * dt
+      distance = speed.linear.x * dt 
+      angle = (speed.angular.z * dt)
+      #path = [[2,0], [2,2], [0,2], [0,0]]
       
 
       if(path != []):
         movement = coordinates(pointSelf,path[step])
         if(pointSelf == path[step] and len(path)-1>step):
           step += 1
- 
-      angle_correction = PID_Angular(total_angle, movement[1])
-      distance_correction = PID_Linear(total_distance, movement[0])
       
-      
-      
-      
-      if(angle_correction > 0.001) or angle_correction < -0.001:
-        speed.angular.z = angle_correction
-        speed.linear.x = 0.0
+
+      if(movement[1]-total_angle > 0.):
+        speed.linear.x = 0.
+        speed.angular.z = velocities[1]
         total_angle = total_angle + angle
-      elif(distance_correction > 0.001 or distance_correction < -0.001):
-        speed.angular.z = 0.0
-        speed.linear.x = distance_correction
+        """elif(movement[1]-total_angle > 0.0 and movement[1]-total_angle <= 5):
+        speed.linear.x = 0.
+        speed.angular.z = 0.25
+        total_angle = total_angle + angle"""
+
+      elif(pause[0] < 50 and total_distance == 0):
+        pause[0] += 1
+        speed.linear.x = 0.
+        speed.angular.z = 0.
+
+      elif(movement[0]-total_distance > 0.0005 and speed.angular.z == 0.):
+        speed.linear.x = velocities[0]
+        speed.angular.z = 0.
+        """if(movement[0] - total_distance > 0.1):
+        elif(movement[0] - total_distance <= 0.1 and total_distance >= movement[0]):
+          speed.linear.x = 0.25
+          speed.angular.z = 0."""
         total_distance = total_distance + distance
+      
+      elif(pause[1] < 50):
+        pause[1] += 1
+        speed.linear.x = 0.
+        speed.angular.z = 0.
+
       else:
-        speed.angular.z = 0.0
-        speed.linear.x = 0.0
+        pause = [0,0]
+        if(angle > math.pi):
+          angle = angle%math.pi
+        speed.linear.x = 0.
+        speed.angular.z = 0.
+        total_angle = movement[1]
+        total_distance = 0
+        if(path != []):
+          pointSelf = path[step]
 
-
-
-
-        
-      if(total_angle > 2 * math.pi):
-        total_angle= total_angle%math.pi
-
-      if(path != [] and speed.linear.x == 0.0 and speed.angular.z == 0.0):
-        pointSelf = path[step]
-
-      debug.x = last_error_angular
-      debug.y = last_error_linear
-      debug.z = np.rad2deg(total_angle)
+      debug.x = velocities[0]
+      debug.y = velocities[1]
+      debug.z = total_angle
       #Write your code here
       pub.publish(speed)
       pub2.publish(debug)

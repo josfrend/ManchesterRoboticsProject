@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<launch>
+    <!-- Load operation parameters from YAML file -->
+    <rosparam command="load" file="$(find puzzlebot_operation)/config/operation_params.yaml"/>
+
+    <!-- Launch position_estimation.py -->
+    <node name="position_estimation" pkg="puzzlebot_operation" type="position_estimation.py"/>
+
+    <!-- Launch path_generator.py -->
+    <node name="path_gen_cl" pkg="puzzlebot_operation" type="path_gen_cl.py"/>
+    
+</launch>
