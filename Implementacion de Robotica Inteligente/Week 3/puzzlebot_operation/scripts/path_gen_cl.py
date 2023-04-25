@@ -5,7 +5,7 @@ import math
 from std_msgs.msg import Float32
 from puzzlebot_operation.msg import goal
 
-# Setup Variables, parameters and messages to be used (if required)
+# Setup Variables
 
 
 time = 0
@@ -14,31 +14,6 @@ error_d = 99999999.0
 pointSelf = [0,0]
 
 
-
-def coordinates(origin, coordinate):
-  xdf = coordinate[0] - origin[0]  
-  ydf = coordinate[1] - origin[1]
-  magnitude = np.sqrt(xdf ** 2 + ydf ** 2)
-  #v1_theta = math.atan2(ydf, xdf)
-  #v2_theta = math.atan2(coordinate[1], coordinate[0])
-  #angle = (v2_theta - v1_theta) * (180.0 / math.pi)
-  angle = (np.arctan2(ydf, xdf))
-  if(angle < 0):
-    angle = math.pi - angle
-  movement = [magnitude, angle]
-  return movement
-
-def calculate_speeds(desired_time, path):
-  total_magnitude = 0
-  total_angle = 0
-  entire_path = [pointSelf] + path
-  for i in range(0,len(entire_path)-1):
-    step_speeds = coordinates(entire_path[i], entire_path[i+1])
-    total_magnitude += step_speeds[0]
-    total_angle += step_speeds[1]
-  angular_speed = total_angle/(desired_time/2)
-  linear_speed = total_magnitude/(desired_time/2)
-  return [linear_speed,angular_speed]
 
 def callbackErrorTheta(msg):
    global error_theta
@@ -50,7 +25,6 @@ def callbackErrorD(msg):
 
 #Stop Condition
 def stop():
- #Setup the stop message (can be the same as the control message)
   print("Stopping")
 
 
@@ -61,8 +35,9 @@ if __name__=='__main__':
     rate = rospy.Rate(100)
     rospy.on_shutdown(stop)
 
-    #Setup Publishers and subscribers here
-    pub = rospy.Publisher("/goal", goal, queue_size = 10)
+    #Setup Publishers and subscribers 
+    pub = rospy.Publisher("/goal", goal, queue_size = 2)
+    pub2 = rospy.Publisher("/balance", Float32, queue_size= 10)
     rospy.Subscriber("/error_theta", Float32, callbackErrorTheta)
     rospy.Subscriber("/error_d", Float32, callbackErrorD)
     goal = goal()
@@ -88,15 +63,19 @@ if __name__=='__main__':
             time_elapse = start_time
         else:
             time = rospy.get_time() - start_time
-
-            if(error_d < 0.1 and error_theta < 0.1 and step < len(path)-1 and time-start_time > 0.4):
-                balance += rospy.get_time() - time_elapse
-                #if(balance > 0.1):
+            # Update step when error_d is less than 0.1 sec and it has been for at least 0.2 sc
+            # then reset balance with a sleep of 0.1 sec
+            if(error_d < 0.1 and step < len(path)-1 ):
+              balance += rospy.get_time() - time_elapse
+              if(balance > 0.2):
                 step += 1
-                start_time = rospy.get_time()
-                time_elapse = rospy.get_time()
+                balance = 0.0
+                rospy.sleep(0.1)
+              start_time = rospy.get_time()
             else:
-               balance = 0.0
+              balance = 0.0
+
+            time_elapse = rospy.get_time()
                
         
         goal.pos_x = path[step][0]
@@ -104,6 +83,7 @@ if __name__=='__main__':
         check +=1
       
         pub.publish(goal)
+        pub2.publish(balance)
       
       #Write your code here 
       
