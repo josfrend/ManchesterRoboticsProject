@@ -68,8 +68,8 @@ class puzzlebot:
         self.integral_angular += self.error_theta * self.dt
         output = self.kp_angular * self.error_theta + self.ki_angular * self.integral_angular
         self.last_error_theta = self.error_theta
-        #if(output > 0 and output < 0.1): output = 0.1
-        #elif(output > -1 and output < 0): output = -0.1
+        if(output > 0 and output < 0.05): output = 0.05
+        elif(output > -0.05 and output < 0): output = -0.05
         return output
     
     def PID_Linear(self):
@@ -103,7 +103,7 @@ class puzzlebot:
         else:
             #if(self.angular_threshold_reached == False):
             if(self.hold == True):
-                rospy.sleep(1)
+                rospy.sleep(0.1)
                 self.hold = False
             self.theta_k = self.theta_k + (self.r*((self.wr - self.wl) /self.l)) * self.dt
             self.theta_k = self.wrapTheta(self.theta_k)
@@ -120,12 +120,12 @@ class puzzlebot:
 
            
 
-            if(np.rad2deg(abs(self.error_theta)) > 0.5 and self.angular_threshold_reached == False):
+            if(np.rad2deg(abs(self.error_theta)) > 0.3 and self.angular_threshold_reached == False):
                 self.speed.linear.x = 0.0
                 self.speed.angular.z = self.PID_Angular()
                 print("I'm moving angularly")
 
-            elif(np.rad2deg(abs(self.error_theta)) < 0.5 and self.pause < 100):
+            elif(np.rad2deg(abs(self.error_theta)) < 0.3 and self.pause < 50):
                 self.pause += 1
                 self.angular_threshold_reached = True
                 self.speed.linear.x = 0.
