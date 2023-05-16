@@ -12,6 +12,8 @@ import mediapipe as mp
 import rospy
 import actionlib
 import control_msgs.msg
+
+#Function to control the gripper
 def gripper_client(value):
 
         # Create an action client
@@ -32,9 +34,21 @@ def gripper_client(value):
         client.wait_for_result()
         return client.get_result()
 
-
+# Class for hand tracking using Mediapipe library
 class handTracker():
+  
     def __init__(self, mode=False, maxHands=2, detectionCon=0.5,modelComplexity=1,trackCon=0.5):
+        """
+        Initializes handTracker object
+        
+        Arguments:
+                mode (bool): Detect multiple hands
+                maxHands (int): Maximum number of hands
+                detectionCon (float): Minimum confidence threshold for hand detection
+                modelComplexity (int): Model complexity for hand detection
+                trackCon (float): Minimum confidence threshold for hand tracking
+        
+        """
         self.mode = mode
         self.maxHands = maxHands
         self.detectionCon = detectionCon
@@ -46,6 +60,17 @@ class handTracker():
 
 
     def handsFinder(self,image,draw=True):
+        """
+        Finds and draws hands in the image
+        
+        Arguments: 
+                image (ndarray): Input image
+                draw (bool): Draw markers on the image
+                
+        Returns:
+                The image with the drawn markers
+                
+        """
         imageRGB = cv2.cvtColor(image,cv2.COLOR_BGR2RGB)
         self.results = self.hands.process(imageRGB)
 
@@ -60,6 +85,18 @@ class handTracker():
 
 
     def positionFinder(self,image, handNo=0, draw=True):
+        """
+        Finds the position of a land mark in a specified hand
+        
+        Arguments:
+                image (ndarray): Input imasge
+                handNo (int): Index of the desired hand to track
+                draw (bool): Draw a circle around the marker
+                
+         Returns:
+                A list of found markers positions in the form of: (id, x, y)
+        
+        """
         lmlist = []
         if self.results.multi_hand_landmarks:
             Hand = self.results.multi_hand_landmarks[handNo]
@@ -76,6 +113,17 @@ class handTracker():
     
     
     def handClosed(self,image, handNo=0, draw=True):
+        """
+        Determines if a hand is open or closed based on the distance between markers
+        
+        Arguments:
+                image (ndarray): Input image
+                handNo (int): Index of the desired hand to track
+                draw (bool): Draw a circle around the marker
+                
+        Returns:
+                Returns a boolean value indicating if the hand is closed
+        """
         lmlist = []
         fingers_closed = [False] * 5
         if self.results.multi_hand_landmarks:
@@ -103,11 +151,14 @@ class handTracker():
 
 
 
-# Import the module that tracks your hand position
+
 
 def main():
+    # Initializes video capture
     cap = cv2.VideoCapture(0)
+    # Import the module that tracks your hand position
     tracker = handTracker()
+    # Initializes ROS node
     rospy.init_node('send_joints')
     pub = rospy.Publisher('/trajectory_controller/command',
                           JointTrajectory,
