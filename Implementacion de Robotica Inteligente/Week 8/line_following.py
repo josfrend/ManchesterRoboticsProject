@@ -48,26 +48,20 @@ class puzzlebot:
         self.kp_angular = 0.52#0.44#0.54
         self.kp_linear = 0.34
         self.ki_angular = 0.15
-        self.kd_angular = 0.#0.1
+        self.kd_angular = 0.
         self.integral_angular = 0.0
-
+        
+        # Store light color 
         self.light_color = "n"
 
         # Initialize ROS publishers for robot speed and pose, and subscribers for wheel speeds and goal pose
         self.main_pub = rospy.Publisher("/cmd_vel", Twist, queue_size= 10)
-        self.pub = rospy.Publisher("position", Pose2D, queue_size = 10)
-        self.pub2 = rospy.Publisher("error_theta", Float32, queue_size = 10)
-        self.pub3 = rospy.Publisher("error_d", Float32, queue_size = 10)
-        self.data_out = Pose2D()
-        self.data_out.x = 0.0
-        self.data_out.y = 0.0
-        self.data_out.theta = 0.0
         rospy.Subscriber("/wr", Float32, self.callbackWr)
         rospy.Subscriber("/wl", Float32, self.callbackWl)
         rospy.Subscriber("/alignment", Int32, self.callbackAlignment)
         rospy.Subscriber("/light_color", String, self.callbackColor)
         self.start_time = rospy.get_time()
-        print("Position node is running")
+        print("Line following node is running")
     
     def wrapTheta(self, angle):
         #Keep the input angle between values of -pi and pi
@@ -75,46 +69,19 @@ class puzzlebot:
             angle = (angle + np.pi) % (2 * np.pi) - np.pi
         return angle
 
-    def PID_Angular(self):
-        #PID controller for angular velocity
-        self.integral_angular += self.error_theta * self.dt
-        output = self.kp_angular * self.error_theta + self.ki_angular * self.integral_angular
-        self.last_error_theta = self.error_theta
-        # if(output > 0 and output < 0.05): output = 0.05
-        # elif(output > -0.05 and output < 0): output = -0.05
-        return output
-    
-    def PID_Linear(self):
-        #PID controller for linear velocity
-        output = self.kp_linear * self.error_d
-        self.last_error_d = self.error_d
-        return output
     
     def PID_Following(self):
         max_angular = 0.03
-        #PID controller for angular velocity
+        #PID controller for line following
         self.integral_angular += self.line_error * self.dt
         derivative = (self.line_error - self.last_error_theta)
         output = self.kp_angular * self.line_error + self.ki_angular * self.integral_angular + self.kd_angular * derivative
         self.last_error_theta = self.line_error
         self.true_output = output
         if(output > max_angular): output = max_angular
-
         elif(output < -max_angular): output = -max_angular
+            
         return output
-
-    """def low_pass_filter(value, sigma):
-        
-        if not hasattr(low_pass_filter, 'kernel'):
-            # Create the Gaussian filter kernel
-            kernel_size = int(2 * 3 * sigma + 1)
-            low_pass_filter.kernel = np.exp(-np.arange(-kernel_size // 2, kernel_size // 2 + 1)**2 / (2 * sigma**2))
-            low_pass_filter.kernel /= np.sum(low_pass_filter.kernel)
-
-        # Update the filter with the new value using convolution
-        filtered_value = np.convolve([value], low_pass_filter.kernel, mode='same')[0]
-
-        return filtered_value"""
 
     def callbackWr(self, msg):
         self.wr = msg.data
@@ -146,40 +113,26 @@ class puzzlebot:
                 rospy.sleep(0.1)
                 self.hold = False
 
-            # Update robot's pose and error values
+            # Update robot's pose 
             self.theta_k = self.theta_k + (self.r*((self.wr - self.wl) /self.l)) * self.dt
             self.theta_k = self.wrapTheta(self.theta_k)
             self.x_k = self.x_k + (self.r*(self.wr + self.wl) /2) * self.dt * np.cos(self.theta_k)
             self.y_k = self.y_k + (self.r*(self.wr + self.wl) /2) * self.dt * np.sin(self.theta_k)
 
-            # self.error_theta = (np.arctan2(self.target_y - self.y_k, self.target_x - self.x_k)) - self.theta_k
-            # self.error_d = np.sqrt((self.target_x-self.x_k)**2 + (self.target_y-self.y_k)**2)
-            # self.error_theta = self.wrapTheta(self.error_theta)
-            # self.data_out.x = self.x_k
-            # self.data_out.y = self.y_k
-            # self.data_out.theta = self.theta_k
-
-           
-             # Control logic for robot movement
-        
-            # If the linear error is greater than a threshold and the linear threshold is not reached yet
-            
+            # Adjust the linear speed according to the color identified 
             desired_speed = 0.02
             if(self.light_color == "g"): actual_speed = desired_speed
             elif(self.light_color == "y"): actual_speed = desired_speed/2
             elif(self.light_color == "r"): actual_speed = 0
             else: actual_speed = desired_speed
             self.speed.linear.x = actual_speed
-
+            
+            # Use a PID controller to adjust angular speed if the line is outside of the threshold
             if(abs(self.line_error) > 15):
                 self.speed.angular.z = self.PID_Following()
             else:
                 self.speed.angular.z = 0.
-
-            # self.speed.angular.z = 0.
-                
-
-            # If none of the above conditions are met, stop the robot and reset relevant variables   
+ 
             
 
              # Publish robot's speed, pose, and error values
