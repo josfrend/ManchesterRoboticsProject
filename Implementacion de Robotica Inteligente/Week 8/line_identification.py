@@ -63,5 +63,40 @@ class lineDetector():
         
         # Sum vertically through the image matrix in a lower and delimited region
         sum = np.sum(dilatation_dst[350:479,15:585], axis=0)
+        
+        self.offset = minim + 50 - self.desired_width//2 
 
+        image = original_resized
+        cv.rectangle(image, (int(minim)+49,350), (int(minim)+51,479),(255,0,0))
+        
+        
+    
+        
+
+        self.processed_image.publish(self.bridge.cv2_to_imgmsg(image, "mono8"))
+        self.alignment_pub.publish(self.offset)
+        self.last_offset = minim
+
+
+
+    def stop(self):
+        print("Stopping")
+
+    
+
+if __name__=='__main__':
+    #Initialise and Setup node
+    rospy.init_node("line_detector")
+    lines = lineDetector()
+    rate = rospy.Rate(100)
+    rospy.on_shutdown(lines.stop)
+
+    print("processing")
+    try:
+        while not rospy.is_shutdown():
+            #lines.run()
+            rate.sleep()
+
+    except rospy.ROSInterruptException():
+        pass
         
