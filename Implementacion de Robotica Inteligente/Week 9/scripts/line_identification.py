@@ -3,7 +3,7 @@
 import rospy
 from sensor_msgs.msg import Image
 from std_msgs.msg import String
-from std_msgs.msg import Int32
+from std_msgs.msg import Int32, Bool
 from cv_bridge import CvBridge, CvBridgeError
 import cv2 as cv
 import numpy as np
@@ -15,6 +15,7 @@ class lineDetector():
         self.image_sub = rospy.Subscriber('/video_source/raw', Image, self.image_callback)
         self.alignment_pub = rospy.Publisher('/alignment', Int32, queue_size=5)
         self.processed_image = rospy.Publisher('/line_detection', Image, queue_size=10)
+        self.line_pub = rospy.Publisher('/line', Bool, queue_size=5)
         self.bridge = CvBridge()
         rospy.on_shutdown(self.stop)
         # Define resized image desired dimensions
@@ -67,22 +68,25 @@ class lineDetector():
         # Obtain the index from the minim value in the array
         minim = np.argmin(sum)
         
+        image = original_resized
         # Calculate the offset based on the previous image crop
         if(sum[minim] < 9000):
             self.offset = minim + self.borders_cutoff + 25 - self.desired_width//2
+            cv.rectangle(image, (int(minim)+self.borders_cutoff-1+25,350), (int(minim)+self.borders_cutoff+1+25,479),(255,0,0))
+            line = True
         else:
             self.offset = 0
+            line = False
 
         
         
         
-        image = original_resized
         # Draw a rectangle corresponding to the minim value
-        cv.rectangle(image, (int(minim)+self.borders_cutoff-1+25,350), (int(minim)+self.borders_cutoff+1+25,479),(255,0,0))
         
         # Publish both the processed image and the value of the offset
         self.processed_image.publish(self.bridge.cv2_to_imgmsg(image, "mono8"))
         self.alignment_pub.publish(self.offset)
+        self.line_pub.publish(line)
 
 
 
