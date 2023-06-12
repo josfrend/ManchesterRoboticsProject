@@ -3,13 +3,32 @@ import rospy
 import numpy as np
 import math
 from std_msgs.msg import Float32
-from std_msgs.msg import Int32
+from std_msgs.msg import Int32, Bool
 from std_msgs.msg import String
 from geometry_msgs.msg import Twist
 from geometry_msgs.msg import Pose2D
 
 class puzzlebot:
     def __init__(self): 
+
+        # Initialize ROS publishers for robot speed and pose, and subscribers for wheel speeds and goal pose
+        self.main_pub = rospy.Publisher("/cmd_vel", Twist, queue_size= 10)
+        self.pub = rospy.Publisher("position", Pose2D, queue_size = 10)
+        self.pub2 = rospy.Publisher("error_theta", Float32, queue_size = 10)
+        self.pub3 = rospy.Publisher("error_d", Float32, queue_size = 10)
+        self.data_out = Pose2D()
+        self.data_out.x = 0.0
+        self.data_out.y = 0.0
+        self.data_out.theta = 0.0
+        rospy.Subscriber("/wr", Float32, self.callbackWr)
+        rospy.Subscriber("/wl", Float32, self.callbackWl)
+        rospy.Subscriber("/alignment", Int32, self.callbackAlignment)
+        rospy.Subscriber("/light_color", String, self.callbackColor)
+        rospy.Subscriber("/sign", String, self.callbackSign)
+        rospy.Subscriber("/line", Bool, self.callbackLine)
+        self.start_time = rospy.get_time()
+        print("Position node is running")
+
         # Initialize variables for wheel speeds, robot pose, target pose, and error values
         self.wr = 0.0
         self.wl = 0.0
@@ -51,32 +70,19 @@ class puzzlebot:
         self.kp_follow = 0.0038#0.0015
         self.ki_follow = 0.00#0.38
         self.kd_follow = 0.0005#0.00005
+
         self.kp_angular = 0.48
-        self.ki_angular = 0.52
-        self.kp_linear = 0.34
+        self.ki_angular = 0.0001
+        self.kp_linear = 0.02
         self.integral_angular = 0.0
         self.integral_follow = 0.0
 
         self.light_color = "n"
         self.sign = ""
         self.sign_inst_completed = True
+        self.line_exist = False
+        self.can_turn = False
 
-        # Initialize ROS publishers for robot speed and pose, and subscribers for wheel speeds and goal pose
-        self.main_pub = rospy.Publisher("/cmd_vel", Twist, queue_size= 10)
-        self.pub = rospy.Publisher("position", Pose2D, queue_size = 10)
-        self.pub2 = rospy.Publisher("error_theta", Float32, queue_size = 10)
-        self.pub3 = rospy.Publisher("error_d", Float32, queue_size = 10)
-        self.data_out = Pose2D()
-        self.data_out.x = 0.0
-        self.data_out.y = 0.0
-        self.data_out.theta = 0.0
-        rospy.Subscriber("/wr", Float32, self.callbackWr)
-        rospy.Subscriber("/wl", Float32, self.callbackWl)
-        rospy.Subscriber("/alignment", Int32, self.callbackAlignment)
-        rospy.Subscriber("/light_color", String, self.callbackColor)
-        rospy.Subscriber("/sign", String, self.callbackSign)
-        self.start_time = rospy.get_time()
-        print("Position node is running")
     
     def wrapTheta(self, angle):
         #Keep the input angle between values of -pi and pi
@@ -89,8 +95,7 @@ class puzzlebot:
         self.integral_angular += self.error_theta * self.dt
         output = self.kp_angular * self.error_theta + self.ki_angular * self.integral_angular
         self.last_error_theta = self.error_theta
-        if(output > 0 and output < 0.18): output = 0.18
-        elif(output > -0.18 and output < 0): output = -0.18
+    
         return output
     
     def PID_Linear(self):
@@ -126,6 +131,9 @@ class puzzlebot:
 
     def callbackSign(self,msg):
         self.sign = msg.data
+
+    def callbackLine(self, msg):
+        self.line_exist = msg.data
 
     def stop(self):
         #On exit stop the puzzlebot
@@ -172,26 +180,35 @@ class puzzlebot:
                 self.y_k = 0.
                 print("Following the line")
             else:
+                if(not self.sign_inst_completed):
+                    self.speed.linear.x = 0.
+                    self.line_exist = False
                 self.speed.angular.z = 0.
 
-                if(self.sign != ""):
+                if(self.sign != "" and not self.line_exist):
                     self.sign_inst_completed = False
                     if(self.sign == "left"):
-                        self.target_x = 1
-                        self.target_y = 1
-                        
-                        
+                        self.target_x = 0.25
+                        self.target_y = 0.5
+                    elif(self.sign == "right"):
+                        self.target_x = 0.3
+                        self.target_y = -0.5
+
                     self.error_theta = (np.arctan2(self.target_y - self.y_k, self.target_x - self.x_k)) - self.theta_k
                     self.error_d = np.sqrt((self.target_x-self.x_k)**2 + (self.target_y-self.y_k)**2)
                     self.error_theta = self.wrapTheta(self.error_theta)
-                    if(self.pause < 100):
-                        self.speed.linear.x = self.PID_Linear()
+
+                    if(self.pause < 220):
+                        self.speed.linear.x = desired_speed
                         self.speed.angular.z = 0.
+                        self.theta_k = 0.
+                        self.x_k = 0.
+                        self.y_k = 0.
                         print("I'm moving linearly")
                         self.pause +=1
 
-                    if(np.rad2deg(abs(self.error_theta)) > 0.3 and self.error_d > 0.1):
-                        self.speed.linear.x = self.PID_Linear()
+                    elif(np.rad2deg(abs(self.error_theta)) > 3.0 ):
+                        self.speed.linear.x = 0.015
                         self.speed.angular.z = self.PID_Angular()
                         print("I'm moving")
                     else:
