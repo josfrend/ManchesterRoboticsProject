@@ -69,9 +69,12 @@ class lineDetector():
         minim = np.argmin(sum)
         
         image = original_resized
-        # Calculate the offset based on the previous image crop
+
+        # Check the size of the line
         if(sum[minim] < 9000):
+            # Calculate the offset based on the previous image crop
             self.offset = minim + self.borders_cutoff + 25 - self.desired_width//2
+            # Draw a rectangle corresponding to the minim value
             cv.rectangle(image, (int(minim)+self.borders_cutoff-1+25,350), (int(minim)+self.borders_cutoff+1+25,479),(255,0,0))
             line = True
         else:
@@ -79,11 +82,7 @@ class lineDetector():
             line = False
 
         
-        
-        
-        # Draw a rectangle corresponding to the minim value
-        
-        # Publish both the processed image and the value of the offset
+        # Publish the processed image, the value of the offset and the existence of the line
         self.processed_image.publish(self.bridge.cv2_to_imgmsg(image, "mono8"))
         self.alignment_pub.publish(self.offset)
         self.line_pub.publish(line)
