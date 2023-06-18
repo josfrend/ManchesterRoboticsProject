@@ -247,7 +247,7 @@ class puzzlebot:
 
                 if((self.sign == "right" or self.sign == "left") and not self.line_exist and self.light_color != "r"):
                     self.state = "turn"
-                elif(self.sign == "forward" and self.light_color != "r"):
+                elif(self.sign == "forward" and not self.line_exist and self.light_color != "r"):
                     self.state = "forward"
                 elif(self.sign == "work"):
                     self.state = "work"
