@@ -2,11 +2,8 @@
 import rospy
 import numpy as np
 import math
-from std_msgs.msg import Float32
-from std_msgs.msg import Int32, Bool
-from std_msgs.msg import String
-from geometry_msgs.msg import Twist
-from geometry_msgs.msg import Pose2D
+from std_msgs.msg import Float32, Int32, Bool, String
+from geometry_msgs.msg import Twist, Pose2D
 
 class puzzlebot:
     def __init__(self): 
@@ -36,7 +33,6 @@ class puzzlebot:
         self.l = 0.19
         self.x_k = 0.0
         self.y_k = 0.0
-        self.line_error = 0
         self.theta_k = 0.0
         self.error_d = 0.0
         self.error_theta = 0.0
@@ -64,24 +60,26 @@ class puzzlebot:
         self.pause = 0
         self.hold = False
         self.angular_threshold_reached = False
-        self.linear_threshold_reached = False
 
         # Initialize PID controller gains and integrals
         self.kp_follow = 0.0015
         self.ki_follow = 0.00#0.38
         self.kd_follow = 0.00005
-
         self.kp_angular = 0.48
         self.ki_angular = 0.0001
         self.kp_linear = 0.02
         self.integral_angular = 0.0
         self.integral_follow = 0.0
 
+        # Variables for input storing
         self.light_color = "n"
         self.sign = ""
-        self.sign_inst_completed = True
         self.line_exist = False
-        self.can_turn = False
+        self.line_error = 0
+
+        # Current state of the state machine and the desired linear speed
+        self.state = "line_following"
+        self.desired_speed = 0.0
 
     
     def wrapTheta(self, angle):
@@ -107,14 +105,12 @@ class puzzlebot:
         return output
     
     def PID_Following(self):
-        max_angular = 1.0#0.15
         #PID controller for angular velocity
         self.integral_follow+= self.line_error * self.dt
         derivative = (self.line_error - self.last_error_theta)
         output = self.kp_follow * self.line_error + self.ki_follow * self.integral_follow + self.kd_follow * derivative
         self.last_error_follow = self.line_error
-        if(output > max_angular): output = max_angular
-        elif(output < -max_angular): output = -max_angular
+        
         return output
 
     def callbackWr(self, msg):
@@ -141,6 +137,96 @@ class puzzlebot:
         self.speed.linear.x = 0.0
         self.main_pub.publish(self.speed)
         print("Stopping")
+    
+    def followingLine(self):
+        # Following line state considering traffic light
+
+        if(self.light_color == "g"): actual_speed = self.desired_speed
+        elif(self.light_color == "y"): actual_speed = self.desired_speed/2
+        elif(self.light_color == "r"): actual_speed = 0
+        else: actual_speed = self.desired_speed
+        self.speed.linear.x = actual_speed
+
+        if(abs(self.line_error) > 15 and self.sign_inst_completed): self.speed.angular.z = self.PID_Following()
+        else: self.speed.angular.z = 0.0
+
+        
+        print("Following the line")
+
+    def workInProgress(self):
+        # Reduce velocity for work in progress sign state
+        
+        if(self.pause < 500):
+            self.speed.linear.x = self.desired_speed//2
+
+            if(abs(self.line_error) > 15 and self.sign_inst_completed): self.speed.angular.z = self.PID_Following()
+            else: self.speed.angular.z = 0.0
+            self.pause += 1
+        else:
+            self.pause = 0
+            self.state = "line_following"
+        
+        print("Going through work in progress")
+
+    def stopSign(self):
+        # State to briefly halt when in front of a stop sign
+        
+        if(self.pause < 500):
+            self.speed.linear.x = 0
+            self.speed.angular.z = 0.0
+            self.pause += 1
+        else: 
+            self.pause = 0
+            self.state = "line_following"
+        
+        print("Stop sign ahead")
+    
+    def goForward(self):
+        # Accelerate when seeing a go forward sign
+        
+        if(self.pause < 500):
+            self.speed.linear.x = self.desired_speed * 2
+            self.speed.angular.z = 0.0
+            self.pause += 1
+        else:
+            self.pause = 0 
+            self.state = "line_following"
+        
+        print("Going straight")
+
+    def turn(self, direction):
+        # Turn the robot using position estimation depending on the direction input
+        
+        if(direction == "left"):
+            self.target_x = 0.3
+            self.target_y = 0.5
+        elif(direction == "right"):
+            self.target_x = 0.3
+            self.target_y = -0.5
+
+        # Calculate error of the actual position to the desired target and adjust accordingly
+        self.error_theta = (np.arctan2(self.target_y - self.y_k, self.target_x - self.x_k)) - self.theta_k
+        self.error_d = np.sqrt((self.target_x-self.x_k)**2 + (self.target_y-self.y_k)**2)
+        self.error_theta = self.wrapTheta(self.error_theta)
+
+        if(self.pause < 440):
+            self.speed.linear.x = self.desired_speed
+            self.speed.angular.z = 0.
+            self.theta_k = 0.
+            self.x_k = 0.
+            self.y_k = 0.
+            self.pause +=1
+
+        elif(np.rad2deg(abs(self.error_theta)) > 3.0 ):
+            self.speed.linear.x = 0.015
+            self.speed.angular.z = self.PID_Angular()
+        else:
+            self.pause = 0
+            self.state = "line_following"
+
+        print("I'm turning to the " + str(direction)) 
+
+
 
     def run(self):
 
@@ -153,102 +239,40 @@ class puzzlebot:
                 rospy.sleep(0.1)
                 self.hold = False
 
-            # Update robot's pose and error values
-            self.theta_k = self.theta_k + (self.r*((self.wr - self.wl) /self.l)) * self.dt
-            self.theta_k = self.wrapTheta(self.theta_k)
-            self.x_k = self.x_k + (self.r*(self.wr + self.wl) /2) * self.dt * np.cos(self.theta_k)
-            self.y_k = self.y_k + (self.r*(self.wr + self.wl) /2) * self.dt * np.sin(self.theta_k)
-
+            # State Machine
             
+            if(self.state == "line_following"):
 
-           
-             # Control logic for robot movement
-        
-            # If the linear error is greater than a threshold and the linear threshold is not reached yet
+                self.followingLine()
+
+                if((self.sign == "right" or self.sign == "left") and not self.line_exist and self.light_color != "r"):
+                    self.state = "turn"
+                elif(self.sign == "forward" and self.light_color != "r"):
+                    self.state = "forward"
+                elif(self.sign == "work"):
+                    self.state = "work"
+                elif(self.sign == "stop"):
+                    self.state = "stop"
+
+            elif(self.state == "turn"):
+
+                self.turn(self.sign)
+
+            elif(self.state == "forward"):
+                self.goForward()
             
-            desired_speed = 0.05
-            if(self.light_color == "g"): actual_speed = desired_speed
-            elif(self.light_color == "y"): actual_speed = desired_speed/2
-            elif(self.light_color == "r"): actual_speed = 0
-            else: actual_speed = desired_speed
-            self.speed.linear.x = actual_speed
+            elif(self.state == "work"):
+                self.workInProgress()
 
-            if(abs(self.line_error) > 15 and self.sign_inst_completed):
-                self.speed.angular.z = self.PID_Following()
-                self.theta_k = 0.
-                self.x_k = 0.
-                self.y_k = 0.
-                print("Following the line")
+            elif(self.state == "stop"):
+                self.stopSign()
+
             else:
-                if(not self.sign_inst_completed):
-                    self.speed.linear.x = 0.
-                    self.line_exist = False
-                self.speed.angular.z = 0.
-
-                if(self.sign != ""):
-                    self.sign_inst_completed = False
-                    if(not self.line_exist):
-                        if(self.sign == "right" or self.sign == "left"):
-                            if(self.sign == "left"):
-                                self.target_x = 0.3
-                                self.target_y = 0.5
-                            elif(self.sign == "right"):
-                                self.target_x = 0.3
-                                self.target_y = -0.5
-                            self.error_theta = (np.arctan2(self.target_y - self.y_k, self.target_x - self.x_k)) - self.theta_k
-                            self.error_d = np.sqrt((self.target_x-self.x_k)**2 + (self.target_y-self.y_k)**2)
-                            self.error_theta = self.wrapTheta(self.error_theta)
-
-                            if(self.pause < 440):
-                                self.speed.linear.x = desired_speed
-                                self.speed.angular.z = 0.
-                                self.theta_k = 0.
-                                self.x_k = 0.
-                                self.y_k = 0.
-                                print("I'm moving linearly")
-                                self.pause +=1
-
-                            elif(np.rad2deg(abs(self.error_theta)) > 3.0 ):
-                                self.speed.linear.x = 0.015
-                                self.speed.angular.z = self.PID_Angular()
-                                print("I'm moving")
-                            else:
-                                self.sign_inst_completed = True
-                                self.pause = 0
-
-                    elif(self.sign == "stop" and self.pause < 100):
-                        self.speed.linear.x = 0
-                        self.speed.angular.z = 0
-                        self.pause += 1
-                    elif(self.sign == "work" and self.pause < 100):
-                        if(abs(self.line_error) > 10):
-                            self.speed.angular.z = self.PID_Following()
-                        self.speed.linear.x = desired_speed/2
-                        self.theta_k = 0.
-                        self.x_k = 0.
-                        self.y_k = 0. 
-                        self.pause += 1
-                    else:
-                        self.sign_inst_completed = True
-                        self.pause = 0 
-                            
-
-
-                    if(self.sign_inst_completed == True): self.sign = ""
-
-
-                
-
-            # self.speed.angular.z = 0.
-                
-
-            # If none of the above conditions are met, stop the robot and reset relevant variables   
+                self.state = "line_following" 
             
 
-             # Publish robot's speed, pose, and error values
+             # Publish robot's speed
             self.main_pub.publish(self.speed)
-            self.pub2.publish(np.rad2deg(self.error_theta))
-            #self.pub3.publish(self.true_output)
             self.start_time = rospy.get_time()
 
         if(self.check > 2 ):
@@ -262,6 +286,7 @@ if __name__ == '__main__':
     robot = puzzlebot()
     rate = rospy.Rate(100)
     rospy.on_shutdown(robot.stop)
+    robot.desired_speed = 0.05
 
     try:
         while not rospy.is_shutdown():
