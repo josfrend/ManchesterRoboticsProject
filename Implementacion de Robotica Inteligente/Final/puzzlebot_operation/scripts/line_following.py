@@ -63,7 +63,7 @@ class puzzlebot:
 
         # Initialize PID controller gains and integrals
         self.kp_follow = 0.0015
-        self.ki_follow = 0.00#0.38
+        self.ki_follow = 0.00
         self.kd_follow = 0.00005
         self.kp_angular = 0.48
         self.ki_angular = 0.0001
